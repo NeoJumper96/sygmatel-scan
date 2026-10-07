@@ -1,0 +1,361 @@
+<title>Scan Matériel Sygmatel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="jsQR.js"></script>
+<style>
+  /* Layout: single-column mobile tool — locked scanned refs, movement-dependent fields, link to prefilled official form */
+  :root{
+    --bg:#f4f3f0;
+    --surface:#ffffff;
+    --ink:#1c2230;
+    --ink-soft:#5b6270;
+    --line:#dcdad3;
+    --accent:#d97a06;
+    --accent-ink:#1c2230;
+    --danger:#b3261e;
+    --ok:#2e7d32;
+    --chip-bg:#1c2230;
+    --chip-ink:#f4f3f0;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14171f; --surface:#1c2230; --ink:#f1efe9; --ink-soft:#a7acb8; --line:#333a48;
+      --accent:#e8993a; --accent-ink:#14171f; --danger:#ff6b63; --ok:#7fd48a;
+      --chip-bg:#e8993a; --chip-ink:#14171f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14171f; --surface:#1c2230; --ink:#f1efe9; --ink-soft:#a7acb8; --line:#333a48;
+    --accent:#e8993a; --accent-ink:#14171f; --danger:#ff6b63; --ok:#7fd48a;
+    --chip-bg:#e8993a; --chip-ink:#14171f;
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Source Sans 3", system-ui, sans-serif;
+    padding-inline:16px; padding-block:24px 56px;
+    display:flex; justify-content:center;
+  }
+  main{width:100%;max-width:480px;display:flex;flex-direction:column;gap:18px}
+  header{display:flex;flex-direction:column;gap:4px}
+  .eyebrow{font-family:"IBM Plex Mono", monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-family:"Barlow Condensed", system-ui, sans-serif;font-weight:700;font-size:34px;line-height:1.05;margin:0;text-wrap:balance}
+  .sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin:0}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+  .card h2{font-family:"Barlow Condensed", system-ui, sans-serif;font-weight:700;font-size:19px;margin:0;letter-spacing:.01em}
+
+  #chips{display:flex;flex-wrap:wrap;gap:8px;min-height:36px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip-bg);color:var(--chip-ink);border-radius:999px;padding:7px 8px 7px 14px;font-family:"IBM Plex Mono", monospace;font-size:13px;font-weight:600}
+  .chip button{appearance:none;border:none;background:rgba(0,0,0,.18);color:inherit;width:22px;height:22px;border-radius:50%;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .empty-state{color:var(--ink-soft);font-size:14px;font-style:italic;margin:0}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .scan-btn{
+    appearance:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    background:var(--accent);color:var(--accent-ink);
+    font-family:"Barlow Condensed", sans-serif;font-weight:700;font-size:20px;letter-spacing:.02em;
+    border-radius:10px;padding:14px;
+  }
+  button.ghost{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink-soft);font-family:"Source Sans 3", sans-serif;font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer}
+  .hint{font-size:13px;color:var(--ink-soft);line-height:1.45;margin:0}
+  .msg{font-size:14px;line-height:1.45;margin:0;min-height:20px}
+  .msg.err{color:var(--danger)}
+  .msg.ok{color:var(--ok)}
+
+  label{font-size:13px;font-weight:600;color:var(--ink-soft);display:flex;flex-direction:column;gap:6px}
+  select, input[type=text]{font-family:"Source Sans 3", sans-serif;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px;width:100%}
+  .field-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .seg button{
+    appearance:none;cursor:pointer;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);
+    font-family:"Barlow Condensed", sans-serif;font-weight:700;font-size:19px;padding:12px;border-radius:10px;
+  }
+  .seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+  .cta{display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--accent-ink);font-family:"Barlow Condensed", sans-serif;font-weight:700;font-size:20px;letter-spacing:.02em;text-decoration:none;border-radius:10px;padding:15px}
+  .cta[aria-disabled="true"]{opacity:.35;pointer-events:none}
+  .cta-note{font-size:13px;color:var(--ink-soft);text-align:center;margin:0;line-height:1.45}
+  .missing{font-size:13px;color:var(--danger);text-align:center;margin:0;min-height:18px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;padding:10px 18px;border-radius:999px;opacity:0;transition:opacity .2s, transform .2s;pointer-events:none;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  [hidden]{display:none!important}
+</style>
+
+<main>
+  
+  <div id="camOverlay" hidden>
+    <video id="camVideo" playsinline muted autoplay></video>
+    <div class="camFrame"></div>
+    <p class="camTxt" id="camTxt">Cadrez l'étiquette QR</p>
+    <button type="button" id="camClose">Fermer</button>
+  </div>
+  <header>
+    <span class="eyebrow">Sygmatel — Agence Nantes</span>
+    <h1>Fiche de prêt matériel</h1>
+    <p class="sub">La référence ne se saisit jamais à la main : elle vient uniquement du scan de l'étiquette QR.</p>
+  </header>
+
+  <section class="card">
+    <h2>1. Matériel scanné</h2>
+    <div id="chips"></div>
+    <button class="scan-btn" id="scanBtn" type="button">Scanner un équipement</button>
+    <input type="file" id="cam" accept="image/*" capture="environment" hidden>
+    <p class="msg" id="scanMsg" role="status"></p>
+    <p class="hint">Le téléphone ouvre l'appareil photo : cadrez l'étiquette QR, la référence s'ajoute toute seule. Répétez pour chaque équipement.</p>
+    <div class="row"><button class="ghost" id="clearBtn" type="button">Vider la liste</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Mouvement</h2>
+    <div class="seg" role="group" aria-label="Type de mouvement">
+      <button type="button" id="mvEmprunt" aria-pressed="false">Emprunt</button>
+      <button type="button" id="mvRestitution" aria-pressed="false">Restitution</button>
+    </div>
+    <label id="chantierWrap" hidden>Chantier / lieu d'affectation
+      <input type="text" id="chantier" autocomplete="off">
+    </label>
+    <label id="etatWrap" hidden>État du matériel rendu
+      <select id="etat">
+        <option value="">— Choisir —</option>
+        <option value="Neuf">Neuf</option>
+        <option value="Correct">Correct</option>
+        <option value="Usé">Usé</option>
+        <option value="Endommagé / défectueux">Endommagé / défectueux</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>3. Vos informations</h2>
+    <div class="field-grid">
+      <label>Nom<input type="text" id="nom" autocomplete="family-name"></label>
+      <label>Prénom<input type="text" id="prenom" autocomplete="given-name"></label>
+      <label>Agence d'intérim<input type="text" id="agence" autocomplete="organization"></label>
+    </div>
+    <p class="hint">Ces trois champs sont mémorisés sur ce téléphone pour vos prochains scans.</p>
+  </section>
+
+  <a class="cta" id="validateLink" href="#" target="_blank" rel="noopener" aria-disabled="true">Ouvrir le formulaire officiel</a>
+  <p class="missing" id="missing"></p>
+  <p class="cta-note">Le formulaire s'ouvre déjà rempli. Il reste à cocher la clause de responsabilité et à taper votre nom complet (signature), puis à envoyer.</p>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var FORMS_BASE = "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=eQuELm6YLkujimMHMrCXdNikEpWMhgZOi9rP0Mpi0wRUQkJGSzkwQllCRUtIRjhCQTAyVUMwTEJSNC4u";
+  var P = {
+    ref:      "r35b390bb9a4d4cad8fb1df465b8d3d7a",
+    nom:      "r4f3cceec1abc49549ad9a6a4dc25473b",
+    prenom:   "rc3748adb868441aaaf82963e5f02e18d",
+    agence:   "ra177d7abea6b4b84ba617e7f6d05cc8c",
+    type:     "rfaa5dc6ab2bb4936b06f3b22dcee2875",
+    etat:     "r9f865af22a5e48f9bf2188c7716bddc1",
+    chantier: "r4c681e900c7b41629165689e3a2db9a8"
+  };
+  var KEY_REFS = "sygmatel_scan_refs_v1";
+  var KEY_PERSON = "sygmatel_scan_person_v1";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var chipsEl = $("chips"), toastEl = $("toast"), scanMsg = $("scanMsg"), missingEl = $("missing"), link = $("validateLink");
+  var mouvement = "";
+
+  function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
+  function lsSet(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+  var refs = lsGet(KEY_REFS); if (!Array.isArray(refs)) refs = [];
+  var person = lsGet(KEY_PERSON) || {};
+  ["nom","prenom","agence"].forEach(function(f){ if (person[f]) $(f).value = person[f]; });
+
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
+  }
+  function setMsg(text, kind){ scanMsg.textContent = text; scanMsg.className = "msg" + (kind ? " " + kind : ""); }
+
+  // Une référence valide a toujours la forme EQ-0001 ; on la retrouve dans l'URL ou le texte du QR.
+  function extractRef(text){
+    var m = String(text || "").match(/EQ-\d{3,6}/i);
+    return m ? m[0].toUpperCase() : "";
+  }
+
+  function addRef(raw){
+    var ref = extractRef(raw);
+    if (!ref){ setMsg("Ce QR code n'est pas une étiquette Sygmatel.", "err"); return false; }
+    if (refs.indexOf(ref) !== -1){ setMsg(ref + " est déjà dans la liste.", "err"); return false; }
+    refs.push(ref); lsSet(KEY_REFS, refs); render();
+    setMsg(ref + " ajouté.", "ok"); toast(ref + " ajouté");
+    return true;
+  }
+  function removeRef(ref){ refs = refs.filter(function(r){ return r !== ref; }); lsSet(KEY_REFS, refs); render(); }
+
+  function render(){
+    chipsEl.innerHTML = "";
+    if (!refs.length){
+      var p = document.createElement("p"); p.className = "empty-state"; p.textContent = "Aucun équipement scanné pour le moment.";
+      chipsEl.appendChild(p);
+    } else {
+      refs.forEach(function(ref){
+        var chip = document.createElement("span"); chip.className = "chip";
+        var l = document.createElement("span"); l.textContent = ref;
+        var b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Retirer " + ref); b.textContent = "×";
+        b.addEventListener("click", function(){ removeRef(ref); });
+        chip.appendChild(l); chip.appendChild(b); chipsEl.appendChild(chip);
+      });
+    }
+    update();
+  }
+
+  function setMouvement(v){
+    mouvement = v;
+    $("mvEmprunt").setAttribute("aria-pressed", v === "Emprunt");
+    $("mvRestitution").setAttribute("aria-pressed", v === "Restitution");
+    $("chantierWrap").hidden = v !== "Emprunt";
+    $("etatWrap").hidden = v !== "Restitution";
+    update();
+  }
+
+  function update(){
+    var missing = [];
+    if (!refs.length) missing.push("scannez au moins un équipement");
+    if (!mouvement) missing.push("choisissez Emprunt ou Restitution");
+    if (mouvement === "Restitution" && !$("etat").value) missing.push("indiquez l'état du matériel");
+    ["nom","prenom","agence"].forEach(function(f){ if (!$(f).value.trim()) missing.push(f === "agence" ? "l'agence d'intérim" : "le " + f); });
+
+    if (missing.length){
+      link.setAttribute("aria-disabled", "true"); link.removeAttribute("href");
+      missingEl.textContent = "À compléter : " + missing.join(", ") + ".";
+      return;
+    }
+    var q = [];
+    function add(k, v){ q.push(k + "=" + encodeURIComponent(v)); }
+    add(P.ref, refs.join(", "));
+    add(P.type, '"' + mouvement + '"');
+    add(P.nom, $("nom").value.trim());
+    add(P.prenom, $("prenom").value.trim());
+    add(P.agence, $("agence").value.trim());
+    if (mouvement === "Emprunt" && $("chantier").value.trim()) add(P.chantier, $("chantier").value.trim());
+    if (mouvement === "Restitution") add(P.etat, '"' + $("etat").value + '"');
+    link.href = FORMS_BASE + "&" + q.join("&");
+    link.removeAttribute("aria-disabled");
+    missingEl.textContent = "";
+  }
+
+  // ---- Lecture du QR depuis une photo prise avec l'appareil photo du téléphone ----
+  function decodeCanvas(img, maxSide){
+    var w = img.width, h = img.height, s = Math.min(1, maxSide / Math.max(w, h));
+    var cw = Math.round(w * s), ch = Math.round(h * s);
+    var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+    var ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, cw, ch);
+    var data = ctx.getImageData(0, 0, cw, ch);
+    var r = window.jsQR ? window.jsQR(data.data, cw, ch, { inversionAttempts: "attemptBoth" }) : null;
+    return r && r.data ? r.data : "";
+  }
+
+  function loadImage(file){
+    return new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("image")); };
+      img.src = url;
+    });
+  }
+
+  async function handlePhoto(file){
+    if (!file) return;
+    setMsg("Lecture du QR code…");
+    try {
+      var img = await loadImage(file), text = "";
+      var sizes = [1400, 900, 2200, 600];
+      for (var i = 0; i < sizes.length && !text; i++) text = decodeCanvas(img, sizes[i]);
+      if (!text && "BarcodeDetector" in window){
+        try {
+          var bmp = await createImageBitmap(file);
+          var found = await new window.BarcodeDetector({ formats: ["qr_code"] }).detect(bmp);
+          if (found && found[0]) text = found[0].rawValue;
+        } catch(e){}
+      }
+      if (!text){ setMsg("QR illisible. Rapprochez-vous de l'étiquette, évitez les reflets, et reprenez la photo.", "err"); return; }
+      addRef(text);
+    } catch(e){
+      setMsg("Impossible de lire la photo. Reprenez-la.", "err");
+    }
+  }
+
+
+  // ---- Caméra en direct (si le navigateur l'autorise), sinon prise de photo ----
+  var camStream = null, camTimer = null, camBusy = false;
+  function stopCam(){
+    if (camTimer){ clearInterval(camTimer); camTimer = null; }
+    if (camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
+    $("camOverlay").hidden = true; camBusy = false;
+  }
+  async function startCam(){
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return false;
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }, audio: false });
+    } catch(e){ return false; }
+    var v = $("camVideo"); v.srcObject = camStream;
+    $("camOverlay").hidden = false;
+    try { await v.play(); } catch(e){}
+    var c = document.createElement("canvas"), ctx = c.getContext("2d", { willReadFrequently: true });
+    camTimer = setInterval(function(){
+      if (camBusy || !v.videoWidth) return;
+      camBusy = true;
+      try {
+        var s = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+        c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+        var d = ctx.getImageData(0, 0, c.width, c.height);
+        var r = window.jsQR && window.jsQR(d.data, c.width, c.height, { inversionAttempts: "attemptBoth" });
+        if (r && r.data && /EQ-\d{3,6}/i.test(r.data)){
+          if (navigator.vibrate) try { navigator.vibrate(60); } catch(e){}
+          stopCam(); addRef(r.data); return;
+        }
+      } catch(e){}
+      camBusy = false;
+    }, 160);
+    return true;
+  }
+  $("camClose").addEventListener("click", stopCam);
+
+  $("scanBtn").addEventListener("click", async function(){
+    var ok = await startCam();
+    if (!ok){ $("cam").value = ""; $("cam").click(); }
+  });
+  $("cam").addEventListener("change", function(e){ handlePhoto(e.target.files && e.target.files[0]); });
+  $("clearBtn").addEventListener("click", function(){ refs = []; lsSet(KEY_REFS, refs); setMsg(""); render(); });
+  $("mvEmprunt").addEventListener("click", function(){ setMouvement("Emprunt"); });
+  $("mvRestitution").addEventListener("click", function(){ setMouvement("Restitution"); });
+  ["nom","prenom","agence"].forEach(function(f){
+    $(f).addEventListener("input", function(){
+      person[f] = $(f).value; lsSet(KEY_PERSON, person); update();
+    });
+  });
+  $("chantier").addEventListener("input", update);
+  $("etat").addEventListener("change", update);
+
+  window.addEventListener("storage", function(e){
+    if (e.key === KEY_REFS){ refs = lsGet(KEY_REFS) || []; render(); }
+  });
+
+  // Une étiquette scannée avec l'appareil photo ouvre cette page avec #EQ-XXXX : on l'ajoute.
+  if (location.hash && location.hash.length > 1){
+    addRef(location.hash.slice(1));
+    try { history.replaceState(null, "", location.pathname + location.search); } catch(e){}
+  }
+
+  render();
+})();
+</script>
