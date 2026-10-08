@@ -262,7 +262,7 @@
     missingEl.textContent = "";
   }
 
-  var MAIL_KEY = "WEB3FORMS_ACCESS_KEY";
+  var MAIL_KEY = "611a70e6-4b53-44e7-b7eb-cfceb8a5d0aa";
   function frDate(){
     var d = new Date();
     return d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }) + " à " + d.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
@@ -283,7 +283,7 @@
       agence_interim: $("agence").value.trim(), chantier: chant, etat_restitution: mouvement === "Restitution" ? $("etat").value : "",
       date_heure: quand, signature: $("signature").value.trim(), botcheck: ""
     };
-    if (MAIL_KEY === "WEB3FORMS_ACCESS_KEY"){ setMsg("Envoi non configuré (clé manquante).", "err"); return; }
+    if (MAIL_KEY === "WEB3FORMS_ACCESS_KEY" || !MAIL_KEY){ setMsg("Envoi non configuré (clé manquante).", "err"); return; }
     link.setAttribute("aria-disabled", "true"); link.textContent = "Envoi en cours…";
     try {
       var r = await fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(body) });
