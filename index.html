@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="jsQR.js?v=3"></script>
+<script src="jsQR.js?v=4"></script>
 <style>
   /* Layout: single-column mobile tool — locked scanned refs, movement-dependent fields, link to prefilled official form */
   :root{
@@ -88,6 +88,8 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;padding:10px 18px;border-radius:999px;opacity:0;transition:opacity .2s, transform .2s;pointer-events:none;white-space:nowrap}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   [hidden]{display:none!important}
+  input[type=text]{text-transform:uppercase}
+  .chip small{font:500 11px system-ui,sans-serif;opacity:.85;text-transform:none}
 </style>
 <style>
 #camOverlay{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -126,6 +128,15 @@
 
   <section class="card">
     <h2>2. Mouvement</h2>
+    <label>Service du technicien
+      <select id="service">
+        <option value="">— Choisir —</option>
+        <option value="Maintenance">Maintenance</option>
+        <option value="Réhabilitation">Réhabilitation</option>
+        <option value="Tertiaire">Tertiaire</option>
+        <option value="Logement neuf">Logement neuf</option>
+      </select>
+    </label>
     <div class="seg" role="group" aria-label="Type de mouvement">
       <button type="button" id="mvEmprunt" aria-pressed="false">Emprunt</button>
       <button type="button" id="mvRestitution" aria-pressed="false">Restitution</button>
@@ -166,7 +177,7 @@
   <p class="cta-note">Un mail récapitulatif est envoyé directement à l'agence.</p>
 </main>
 
-<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 3 — envoi direct par mail</p>
+<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 4 — envoi direct par mail</p>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -193,9 +204,28 @@
   function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
   function lsSet(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 
+  var CATALOG = {
+    "EQ-0001":"Lapidaire BOSCH GWS18V-11PS + batterie","EQ-0002":"Visseuse BOSCH GSR18V-50 + batterie + chargeur",
+    "EQ-0003":"Découpeur BOSCH GOP18V-28 + batterie","EQ-0004":"Rainureuse BOSCH GNF65A","EQ-0005":"Pistolet PULSA 27E",
+    "EQ-0006":"Ligatureuse ATDV Pisto40 + batterie + chargeur","EQ-0007":"Ligatureuse ATDV Pisto40","EQ-0008":"Ligatureuse ATDV Pisto40",
+    "EQ-0009":"Laser BOSCH GCL2-15","EQ-0010":"Laser BOSCH GCL2-15","EQ-0011":"Perforateur BOSCH GBH18V-26 + batterie",
+    "EQ-0012":"Visseuse BOSCH GSR18V-90C + batterie","EQ-0013":"Visseuse BOSCH GSR18V-110C + batterie"
+  };
+  function designation(ref){ return CATALOG[ref] || ""; }
+  function labelRef(ref){ return designation(ref) ? ref + " (" + designation(ref) + ")" : ref; }
+  // Responsables de service. Adresses prévues (initiale.nom@sygmatel.fr) : non utilisées pour l'instant,
+  // tous les mails vont à c.roubeyrie@sygmatel.fr (clé d'envoi unique) tant que le mode test est actif.
+  var SERVICES = {
+    "Maintenance":{resp:"Ismaël BAPTISTE", email:"i.baptiste@sygmatel.fr"},
+    "Réhabilitation":{resp:"Valéry BERTIN", email:"v.bertin@sygmatel.fr"},
+    "Tertiaire":{resp:"Bastien THOMAS", email:"b.thomas@sygmatel.fr"},
+    "Logement neuf":{resp:"Clément ROUBEYRIE", email:"c.roubeyrie@sygmatel.fr"}
+  };
+  var EXCEL_URL = ""; // lien du classeur de suivi (à renseigner)
   var refs = lsGet(KEY_REFS); if (!Array.isArray(refs)) refs = [];
   var person = lsGet(KEY_PERSON) || {};
-  ["nom","prenom","agence"].forEach(function(f){ if (person[f]) $(f).value = person[f]; });
+  ["nom","prenom","agence"].forEach(function(f){ if (person[f]) $(f).value = String(person[f]).toUpperCase(); });
+  if (person.service) $("service").value = person.service;
 
   function toast(msg){
     toastEl.textContent = msg; toastEl.classList.add("show");
@@ -227,7 +257,7 @@
     } else {
       refs.forEach(function(ref){
         var chip = document.createElement("span"); chip.className = "chip";
-        var l = document.createElement("span"); l.textContent = ref;
+        var l = document.createElement("span"); l.textContent = ref; if (designation(ref)){ var sm = document.createElement("small"); sm.textContent = " " + designation(ref); l.appendChild(sm); }
         var b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Retirer " + ref); b.textContent = "×";
         b.addEventListener("click", function(){ removeRef(ref); });
         chip.appendChild(l); chip.appendChild(b); chipsEl.appendChild(chip);
@@ -252,6 +282,7 @@
     if (mouvement === "Restitution" && !$("etat").value) missing.push("indiquez l'état du matériel");
     ["nom","prenom","agence"].forEach(function(f){ if (!$(f).value.trim()) missing.push(f === "agence" ? "l'agence d'intérim" : "le " + f); });
 
+    if (!$("service").value) missing.push("le service du technicien");
     if (!$("clause").checked) missing.push("cochez la clause de responsabilité");
     if (!$("signature").value.trim()) missing.push("votre nom complet (signature)");
     if (missing.length){
@@ -270,19 +301,22 @@
   }
   async function envoyer(){
     if (link.getAttribute("aria-disabled") === "true") return;
-    var who = ($("prenom").value.trim() + " " + $("nom").value.trim()).trim();
-    var liste = refs.join(", "), quand = frDate(), chant = $("chantier").value.trim();
+    var who = ($("prenom").value.trim() + " " + $("nom").value.trim()).trim().toUpperCase();
+    var liste = refs.map(labelRef).join(", "), quand = frDate(), chant = $("chantier").value.trim().toUpperCase();
+    var svc = $("service").value, sv = SERVICES[svc];
     var texte = mouvement === "Emprunt"
-      ? who + " (" + $("agence").value.trim() + ") a emprunté le matériel " + liste + (chant ? " pour le chantier de " + chant : "") + " le " + quand + "."
-      : who + " (" + $("agence").value.trim() + ") a restitué le matériel " + liste + " le " + quand + ". État constaté : " + $("etat").value + ".";
+      ? who + " (" + $("agence").value.trim().toUpperCase() + ") a emprunté le matériel suivant : " + liste + (chant ? ", pour le chantier de " + chant : "") + ", le " + quand + "."
+      : who + " (" + $("agence").value.trim().toUpperCase() + ") a restitué le matériel suivant : " + liste + ", le " + quand + ". État constaté : " + $("etat").value + ".";
+    texte += "\n\nService : " + svc + " (responsable : " + sv.resp + ").";
+    if (EXCEL_URL) texte += "\n\nRetrouvez l'ensemble du matériel et son suivi dans le fichier ci-dessous :\n" + EXCEL_URL;
     var body = {
       access_key: MAIL_KEY,
-      subject: (mouvement === "Emprunt" ? "Emprunt" : "Restitution") + " matériel — " + who + " — " + liste,
+      subject: (mouvement === "Emprunt" ? "Emprunt" : "Restitution") + " matériel — " + who + " — " + refs.join(", "),
       from_name: "Scan matériel SYGMATEL",
-      message: texte + "\n\nSignature électronique : " + $("signature").value.trim() + " (clause de responsabilité acceptée).",
-      mouvement: mouvement, references: liste, nom: $("nom").value.trim(), prenom: $("prenom").value.trim(),
-      agence_interim: $("agence").value.trim(), chantier: chant, etat_restitution: mouvement === "Restitution" ? $("etat").value : "",
-      date_heure: quand, signature: $("signature").value.trim(), botcheck: ""
+      message: texte,
+      mouvement: mouvement, references: refs.join(", "), designations: liste, nom: $("nom").value.trim().toUpperCase(), prenom: $("prenom").value.trim().toUpperCase(),
+      agence_interim: $("agence").value.trim().toUpperCase(), service: svc, responsable_service: sv.resp, chantier: chant,
+      etat_restitution: mouvement === "Restitution" ? $("etat").value : "", date_heure: quand, botcheck: ""
     };
     if (MAIL_KEY === "WEB3FORMS_ACCESS_KEY" || !MAIL_KEY){ setMsg("Envoi non configuré (clé manquante).", "err"); return; }
     link.setAttribute("aria-disabled", "true"); link.textContent = "Envoi en cours…";
@@ -386,12 +420,15 @@
   $("clearBtn").addEventListener("click", function(){ refs = []; lsSet(KEY_REFS, refs); setMsg(""); render(); });
   $("mvEmprunt").addEventListener("click", function(){ setMouvement("Emprunt"); });
   $("mvRestitution").addEventListener("click", function(){ setMouvement("Restitution"); });
-  ["nom","prenom","agence"].forEach(function(f){
+  ["nom","prenom","agence","chantier","signature"].forEach(function(f){
     $(f).addEventListener("input", function(){
+      var el = $(f), p = el.selectionStart; el.value = el.value.toUpperCase(); try { el.setSelectionRange(p, p); } catch(e){}
+      if (f === "chantier" || f === "signature") return;
       person[f] = $(f).value; lsSet(KEY_PERSON, person); update();
     });
   });
   $("chantier").addEventListener("input", update);
+  $("service").addEventListener("change", function(){ person.service = $("service").value; lsSet(KEY_PERSON, person); update(); });
   $("clause").addEventListener("change", update);
   $("signature").addEventListener("input", update);
   $("etat").addEventListener("change", update);
