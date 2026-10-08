@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="jsQR.js?v=4"></script>
+<script src="jsQR.js?v=5"></script>
 <style>
   /* Layout: single-column mobile tool — locked scanned refs, movement-dependent fields, link to prefilled official form */
   :root{
@@ -162,7 +162,7 @@
       <label>Prénom<input type="text" id="prenom" autocomplete="given-name"></label>
       <label>Agence d'intérim<input type="text" id="agence" autocomplete="organization"></label>
     </div>
-    <p class="hint">Ces trois champs sont mémorisés sur ce téléphone pour vos prochains scans.</p>
+    <p class="hint">Rien n'est mémorisé : chaque ouverture de la page repart de zéro.</p>
   </section>
 
   <section class="card">
@@ -177,7 +177,7 @@
   <p class="cta-note">Un mail récapitulatif est envoyé directement à l'agence.</p>
 </main>
 
-<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 4 — envoi direct par mail</p>
+<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 5 — envoi direct par mail</p>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -201,8 +201,10 @@
   var chipsEl = $("chips"), toastEl = $("toast"), scanMsg = $("scanMsg"), missingEl = $("missing"), link = $("validateLink");
   var mouvement = "";
 
-  function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
-  function lsSet(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+  // Aucune mémoire entre deux ouvertures : on efface d'anciennes données et on n'en enregistre plus.
+  try { localStorage.removeItem("sygmatel_scan_refs_v1"); localStorage.removeItem("sygmatel_scan_person_v1"); sessionStorage.clear(); } catch(e){}
+  function lsGet(k){ return null; }
+  function lsSet(k,v){}
 
   var CATALOG = {
     "EQ-0001":"Lapidaire BOSCH GWS18V-11PS + batterie","EQ-0002":"Visseuse BOSCH GSR18V-50 + batterie + chargeur",
