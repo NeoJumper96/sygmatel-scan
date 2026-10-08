@@ -223,7 +223,7 @@
     "Tertiaire":{resp:"Bastien THOMAS", email:"b.thomas@sygmatel.fr"},
     "Logement neuf":{resp:"Clément ROUBEYRIE", email:"c.roubeyrie@sygmatel.fr"}
   };
-  var EXCEL_URL = ""; // lien du classeur de suivi (à renseigner)
+  var EXCEL_URL = "https://sygmatelfr-my.sharepoint.com/personal/c_roubeyrie_sygmatel_fr/Documents/Projets/Suivi_materiel_SYGMATEL.xlsx";
   var refs = lsGet(KEY_REFS); if (!Array.isArray(refs)) refs = [];
   var person = lsGet(KEY_PERSON) || {};
   ["nom","prenom","agence"].forEach(function(f){ if (person[f]) $(f).value = String(person[f]).toUpperCase(); });
