@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="jsQR.js?v=5"></script>
+<script src="jsQR.js?v=6"></script>
 <style>
   /* Layout: single-column mobile tool — locked scanned refs, movement-dependent fields, link to prefilled official form */
   :root{
@@ -89,6 +89,12 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   [hidden]{display:none!important}
   input[type=text]{text-transform:uppercase}
+  .pack{border:1px solid rgba(128,128,128,.35);border-radius:12px;padding:12px;margin-top:12px}
+  .pack b{font-family:"IBM Plex Mono",monospace}
+  .pack .sm{font-size:13px;opacity:.8;margin:2px 0 8px}
+  .pack label.inl{display:flex;gap:8px;align-items:center;margin:4px 0}
+  .pack input[type=radio],.pack input[type=checkbox]{width:auto}
+  .pack select,.pack input[type=text]{margin-top:6px}
   .chip small{font:500 11px system-ui,sans-serif;opacity:.85;text-transform:none}
 </style>
 <style>
@@ -128,7 +134,7 @@
 
   <section class="card">
     <h2>2. Mouvement</h2>
-    <label>Service du technicien
+    <label id="serviceLbl">Service du technicien
       <select id="service">
         <option value="">— Choisir —</option>
         <option value="Maintenance">Maintenance</option>
@@ -144,23 +150,15 @@
     <label id="chantierWrap" hidden>Chantier / lieu d'affectation
       <input type="text" id="chantier" autocomplete="off">
     </label>
-    <label id="etatWrap" hidden>État du matériel rendu
-      <select id="etat">
-        <option value="">— Choisir —</option>
-        <option value="Neuf">Neuf</option>
-        <option value="Correct">Correct</option>
-        <option value="Usé">Usé</option>
-        <option value="Endommagé / défectueux">Endommagé / défectueux</option>
-      </select>
-    </label>
+    <div id="restitPanels" hidden></div>
   </section>
 
   <section class="card">
-    <h2>3. Vos informations</h2>
+    <h2 id="infoTitle">3. Vos informations</h2>
     <div class="field-grid">
       <label>Nom<input type="text" id="nom" autocomplete="family-name"></label>
       <label>Prénom<input type="text" id="prenom" autocomplete="given-name"></label>
-      <label>Agence d'intérim<input type="text" id="agence" autocomplete="organization"></label>
+      <label id="agenceWrap">Agence d'intérim<input type="text" id="agence" autocomplete="organization"></label>
     </div>
     <p class="hint">Rien n'est mémorisé : chaque ouverture de la page repart de zéro.</p>
   </section>
@@ -177,7 +175,7 @@
   <p class="cta-note">Un mail récapitulatif est envoyé directement à l'agence.</p>
 </main>
 
-<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 5 — envoi direct par mail</p>
+<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 6 — envoi direct par mail</p>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -207,13 +205,225 @@
   function lsSet(k,v){}
 
   var CATALOG = {
-    "EQ-0001":"Lapidaire BOSCH GWS18V-11PS + batterie","EQ-0002":"Visseuse BOSCH GSR18V-50 + batterie + chargeur",
-    "EQ-0003":"Découpeur BOSCH GOP18V-28 + batterie","EQ-0004":"Rainureuse BOSCH GNF65A","EQ-0005":"Pistolet PULSA 27E",
-    "EQ-0006":"Ligatureuse ATDV Pisto40 + batterie + chargeur","EQ-0007":"Ligatureuse ATDV Pisto40","EQ-0008":"Ligatureuse ATDV Pisto40",
-    "EQ-0009":"Laser BOSCH GCL2-15","EQ-0010":"Laser BOSCH GCL2-15","EQ-0011":"Perforateur BOSCH GBH18V-26 + batterie",
-    "EQ-0012":"Visseuse BOSCH GSR18V-90C + batterie","EQ-0013":"Visseuse BOSCH GSR18V-110C + batterie"
-  };
-  function designation(ref){ return CATALOG[ref] || ""; }
+ "EQ-0001": {
+  "n": "Lapidaire BOSCH GWS18V-11PS",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Neuf"
+ },
+ "EQ-0002": {
+  "n": "Visseuse BOSCH GSR18V-50",
+  "items": [
+   "batterie",
+   "chargeur GAL1880CV"
+  ],
+  "etat": "Neuf"
+ },
+ "EQ-0003": {
+  "n": "Découpeur BOSCH GOP18V-28",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Correct"
+ },
+ "EQ-0004": {
+  "n": "Rainureuse BOSCH GNF65A",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0005": {
+  "n": "Pistolet PULSA 27E",
+  "items": [],
+  "etat": "Correct"
+ },
+ "EQ-0006": {
+  "n": "Ligatureuse ATDV Pisto40",
+  "items": [
+   "batterie",
+   "chargeur"
+  ],
+  "etat": "Usé"
+ },
+ "EQ-0007": {
+  "n": "Ligatureuse ATDV Pisto40",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0008": {
+  "n": "Ligatureuse ATDV Pisto40",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0009": {
+  "n": "Laser BOSCH GCL2-15",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0010": {
+  "n": "Laser BOSCH GCL2-15",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0011": {
+  "n": "Perforateur BOSCH GBH18V-26",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Correct"
+ },
+ "EQ-0012": {
+  "n": "Visseuse BOSCH GSR18V-90C",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Neuf"
+ },
+ "EQ-0013": {
+  "n": "Visseuse BOSCH GSR18V-110C",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Neuf"
+ },
+ "EQ-0014": {
+  "n": "Visseuse Bosch 18 V",
+  "items": [],
+  "etat": "Correct"
+ },
+ "EQ-0015": {
+  "n": "Perforateur Bosch",
+  "items": [],
+  "etat": "Endommagé / défectueux"
+ },
+ "EQ-0016": {
+  "n": "Disqueuse Bosch",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0017": {
+  "n": "Visseuse Bosch 18 V",
+  "items": [],
+  "etat": "Correct"
+ },
+ "EQ-0018": {
+  "n": "Burineur Hilti (gros)",
+  "items": [],
+  "etat": "Correct"
+ },
+ "EQ-0019": {
+  "n": "Perforateur Hilti",
+  "items": [],
+  "etat": "Usé"
+ },
+ "EQ-0020": {
+  "n": "Rainureuse Bosch",
+  "items": [
+   "2 disques neufs"
+  ],
+  "etat": ""
+ },
+ "EQ-0021": {
+  "n": "Perforateur Bosch 18 V",
+  "items": [],
+  "etat": "Usé"
+ },
+ "EQ-0022": {
+  "n": "Visseuse Bosch",
+  "items": [],
+  "etat": ""
+ },
+ "EQ-0023": {
+  "n": "Disqueuse Bosch",
+  "items": [],
+  "etat": ""
+ },
+ "EQ-0024": {
+  "n": "Ligatureuse Makita",
+  "items": [
+   "batterie",
+   "chargeur"
+  ],
+  "etat": ""
+ },
+ "EQ-0025": {
+  "n": "Visseuse Bosch",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0026": {
+  "n": "Perceuse Bosch",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0027": {
+  "n": "Lapidaire Marque non précisée",
+  "items": [
+   "batterie"
+  ],
+  "etat": "Usé"
+ },
+ "EQ-0028": {
+  "n": "Rainureuse Hilti",
+  "items": [],
+  "etat": "Correct"
+ },
+ "EQ-0029": {
+  "n": "Perforateur Marque non précisée",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0030": {
+  "n": "Visseuse Marque non précisée",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0031": {
+  "n": "Visseuse Bosch",
+  "items": [],
+  "etat": "Usé"
+ },
+ "EQ-0032": {
+  "n": "Perceuse Bosch",
+  "items": [],
+  "etat": "Usé"
+ },
+ "EQ-0033": {
+  "n": "Burineur Hilti",
+  "items": [
+   "forêts toutes tailles"
+  ],
+  "etat": "Correct"
+ },
+ "EQ-0034": {
+  "n": "Perceuse filaire Hilti",
+  "items": [],
+  "etat": ""
+ },
+ "EQ-0035": {
+  "n": "Lapidaire Marque non précisée",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0036": {
+  "n": "Visseuse Marque non précisée",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0037": {
+  "n": "Perceuse Marque non précisée",
+  "items": [],
+  "etat": "Neuf"
+ },
+ "EQ-0038": {
+  "n": "Lapidaire sur fil Marque non précisée",
+  "items": [],
+  "etat": ""
+ }
+};
+  var ETATS = ["Neuf","Correct","Usé","Endommagé / défectueux"];
+  function pack(ref){ var c = CATALOG[ref]; return c ? [c.n].concat(c.items) : []; }
+  function designation(ref){ var c = CATALOG[ref]; return c ? (c.n + (c.items.length ? " + " + c.items.join(" + ") : "")) : ""; }
   function labelRef(ref){ return designation(ref) ? ref + " (" + designation(ref) + ")" : ref; }
   // Responsables de service. Adresses prévues (initiale.nom@sygmatel.fr) : non utilisées pour l'instant,
   // tous les mails vont à c.roubeyrie@sygmatel.fr (clé d'envoi unique) tant que le mode test est actif.
@@ -265,7 +475,57 @@
         chip.appendChild(l); chip.appendChild(b); chipsEl.appendChild(chip);
       });
     }
+    renderRestit();
     update();
+  }
+
+  var restit = {};
+  function rk(e){ return ETATS.indexOf(e); }
+  function restitOf(ref){ if (!restit[ref]) restit[ref] = { complet: true, manquants: [], comment: "", etat: "" }; return restit[ref]; }
+  function aFacturer(ref){
+    var d = restitOf(ref), c = CATALOG[ref], raisons = [];
+    if (!d.complet) raisons.push("pack incomplet" + (d.manquants.length ? " (manque : " + d.manquants.join(", ") + ")" : ""));
+    if (c && c.etat && d.etat && rk(d.etat) > rk(c.etat)) raisons.push("état dégradé (" + c.etat + " → " + d.etat + ")");
+    return raisons;
+  }
+  function renderRestit(){
+    var box = $("restitPanels");
+    box.hidden = mouvement !== "Restitution";
+    box.innerHTML = "";
+    if (mouvement !== "Restitution") return;
+    refs.forEach(function(ref){
+      var d = restitOf(ref), c = CATALOG[ref];
+      var div = document.createElement("div"); div.className = "pack";
+      var h = document.createElement("div"); h.innerHTML = "<b></b>"; h.firstChild.textContent = ref; div.appendChild(h);
+      var s1 = document.createElement("div"); s1.className = "sm";
+      s1.textContent = c ? "Doit contenir : " + pack(ref).join(" + ") + (c.etat ? ". État enregistré à l'inventaire : " + c.etat + "." : ".") : "Équipement non référencé.";
+      div.appendChild(s1);
+      [["Pack complet", true],["Pack incomplet", false]].forEach(function(o){
+        var l = document.createElement("label"); l.className = "inl";
+        var r = document.createElement("input"); r.type = "radio"; r.name = "pk_" + ref; r.checked = d.complet === o[1];
+        r.addEventListener("change", function(){ d.complet = o[1]; renderRestit(); update(); });
+        l.appendChild(r); l.appendChild(document.createTextNode(" " + o[0])); div.appendChild(l);
+      });
+      if (!d.complet){
+        var q = document.createElement("div"); q.className = "sm"; q.textContent = "Éléments manquants :"; div.appendChild(q);
+        pack(ref).forEach(function(it){
+          var l = document.createElement("label"); l.className = "inl";
+          var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = d.manquants.indexOf(it) !== -1;
+          cb.addEventListener("change", function(){
+            d.manquants = d.manquants.filter(function(x){ return x !== it; }); if (cb.checked) d.manquants.push(it); update();
+          });
+          l.appendChild(cb); l.appendChild(document.createTextNode(" " + it)); div.appendChild(l);
+        });
+        var t = document.createElement("input"); t.type = "text"; t.placeholder = "Commentaire (autre élément manquant, précisions)"; t.value = d.comment;
+        t.addEventListener("input", function(){ t.value = t.value.toUpperCase(); d.comment = t.value; update(); });
+        div.appendChild(t);
+      }
+      var sel = document.createElement("select");
+      sel.innerHTML = '<option value="">— État constaté du matériel —</option>' + ETATS.map(function(e){ return '<option>' + e + '</option>'; }).join("");
+      sel.value = d.etat; sel.addEventListener("change", function(){ d.etat = sel.value; update(); });
+      div.appendChild(sel);
+      box.appendChild(div);
+    });
   }
 
   function setMouvement(v){
@@ -273,7 +533,10 @@
     $("mvEmprunt").setAttribute("aria-pressed", v === "Emprunt");
     $("mvRestitution").setAttribute("aria-pressed", v === "Restitution");
     $("chantierWrap").hidden = v !== "Emprunt";
-    $("etatWrap").hidden = v !== "Restitution";
+    $("agenceWrap").hidden = v === "Restitution";
+    $("serviceLbl").firstChild.textContent = v === "Restitution" ? "Votre service" : "Service du technicien";
+    $("infoTitle").textContent = v === "Restitution" ? "3. Responsable qui réceptionne" : "3. Vos informations";
+    renderRestit();
     update();
   }
 
@@ -281,10 +544,13 @@
     var missing = [];
     if (!refs.length) missing.push("scannez au moins un équipement");
     if (!mouvement) missing.push("choisissez Emprunt ou Restitution");
-    if (mouvement === "Restitution" && !$("etat").value) missing.push("indiquez l'état du matériel");
-    ["nom","prenom","agence"].forEach(function(f){ if (!$(f).value.trim()) missing.push(f === "agence" ? "l'agence d'intérim" : "le " + f); });
-
-    if (!$("service").value) missing.push("le service du technicien");
+    if (mouvement === "Restitution") refs.forEach(function(ref){
+      var d = restitOf(ref);
+      if (!d.etat) missing.push("l'état de " + ref);
+      if (!d.complet && !d.manquants.length && !d.comment.trim()) missing.push("ce qui manque dans " + ref);
+    });
+    ["nom","prenom"].concat(mouvement === "Restitution" ? [] : ["agence"]).forEach(function(f){ if (!$(f).value.trim()) missing.push(f === "agence" ? "l'agence d'intérim" : "le " + (f === "nom" ? "nom" : "prénom")); });
+    if (!$("service").value) missing.push("le service");
     if (!$("clause").checked) missing.push("cochez la clause de responsabilité");
     if (!$("signature").value.trim()) missing.push("votre nom complet (signature)");
     if (missing.length){
@@ -304,29 +570,41 @@
   async function envoyer(){
     if (link.getAttribute("aria-disabled") === "true") return;
     var who = ($("prenom").value.trim() + " " + $("nom").value.trim()).trim().toUpperCase();
-    var liste = refs.map(labelRef).join(", "), quand = frDate(), chant = $("chantier").value.trim().toUpperCase();
-    var svc = $("service").value, sv = SERVICES[svc];
-    var texte = mouvement === "Emprunt"
-      ? who + " (" + $("agence").value.trim().toUpperCase() + ") a emprunté le matériel suivant : " + liste + (chant ? ", pour le chantier de " + chant : "") + ", le " + quand + "."
-      : who + " (" + $("agence").value.trim().toUpperCase() + ") a restitué le matériel suivant : " + liste + ", le " + quand + ". État constaté : " + $("etat").value + ".";
+    var ag = $("agence").value.trim().toUpperCase();
+    var quand = frDate(), chant = $("chantier").value.trim().toUpperCase();
+    var svc = $("service").value, sv = SERVICES[svc], texte = "", fact = [], body;
+    if (mouvement === "Emprunt"){
+      texte = who + " (" + ag + ") a emprunté le matériel suivant : " + refs.map(labelRef).join(", ") + (chant ? ", pour le chantier de " + chant : "") + ", le " + quand + ".";
+    } else {
+      texte = "Restitution réceptionnée par " + who + " (service " + svc + ") le " + quand + " :";
+      refs.forEach(function(ref){
+        var d = restitOf(ref), r = aFacturer(ref);
+        texte += "\n• " + labelRef(ref) + " — " + (d.complet ? "pack complet" : "pack INCOMPLET" + (d.manquants.length ? " (manque : " + d.manquants.join(", ") + ")" : "") + (d.comment.trim() ? " — " + d.comment.trim() : "")) + " — état : " + d.etat + ".";
+        if (r.length) fact.push(ref + " : " + r.join(" ; "));
+      });
+      if (fact.length) texte += "\n\n⚠ À VOIR POUR FACTURATION :\n• " + fact.join("\n• ");
+    }
     texte += "\n\nService : " + svc + " (responsable : " + sv.resp + ").";
     if (EXCEL_URL) texte += "\n\nRetrouvez l'ensemble du matériel et son suivi dans le fichier ci-dessous :\n" + EXCEL_URL;
-    var body = {
+    body = {
       access_key: MAIL_KEY,
-      subject: (mouvement === "Emprunt" ? "Emprunt" : "Restitution") + " matériel — " + who + " — " + refs.join(", "),
+      subject: (mouvement === "Emprunt" ? "Emprunt" : "Restitution") + " matériel" + (fact.length ? " — À FACTURER ?" : "") + " — " + who + " — " + refs.join(", "),
       from_name: "Scan matériel SYGMATEL",
       message: texte,
-      mouvement: mouvement, references: refs.join(", "), designations: liste, nom: $("nom").value.trim().toUpperCase(), prenom: $("prenom").value.trim().toUpperCase(),
-      agence_interim: $("agence").value.trim().toUpperCase(), service: svc, responsable_service: sv.resp, chantier: chant,
-      etat_restitution: mouvement === "Restitution" ? $("etat").value : "", date_heure: quand, botcheck: ""
+      mouvement: mouvement, references: refs.join(", "), nom: $("nom").value.trim().toUpperCase(), prenom: $("prenom").value.trim().toUpperCase(),
+      agence_interim: ag, service: svc, responsable_service: sv.resp, chantier: chant, date_heure: quand, a_facturer: fact.join(" | "), botcheck: ""
     };
+    if (mouvement === "Restitution") refs.forEach(function(ref){
+      var d = restitOf(ref);
+      body["detail_" + ref] = (d.complet ? "complet" : "incomplet : " + d.manquants.join(", ") + " " + d.comment.trim()) + " | état : " + d.etat;
+    });
     if (MAIL_KEY === "WEB3FORMS_ACCESS_KEY" || !MAIL_KEY){ setMsg("Envoi non configuré (clé manquante).", "err"); return; }
     link.setAttribute("aria-disabled", "true"); link.textContent = "Envoi en cours…";
     try {
       var r = await fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(body) });
       var j = await r.json();
       if (!j.success) throw new Error(j.message || "echec");
-      refs = []; lsSet(KEY_REFS, refs); $("clause").checked = false; $("signature").value = ""; $("chantier").value = "";
+      refs = []; restit = {}; lsSet(KEY_REFS, refs); $("clause").checked = false; $("signature").value = ""; $("chantier").value = "";
       render(); toast("Déclaration envoyée ✔"); setMsg("Déclaration envoyée à l'agence.");
     } catch(e){
       setMsg("Envoi impossible. Vérifiez le réseau et réessayez.", "err");
@@ -433,7 +711,6 @@
   $("service").addEventListener("change", function(){ person.service = $("service").value; lsSet(KEY_PERSON, person); update(); });
   $("clause").addEventListener("change", update);
   $("signature").addEventListener("input", update);
-  $("etat").addEventListener("change", update);
 
   window.addEventListener("storage", function(e){
     if (e.key === KEY_REFS){ refs = lsGet(KEY_REFS) || []; render(); }
