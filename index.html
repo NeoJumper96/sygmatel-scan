@@ -154,9 +154,16 @@
     <p class="hint">Ces trois champs sont mémorisés sur ce téléphone pour vos prochains scans.</p>
   </section>
 
-  <a class="cta" id="validateLink" href="#" target="_blank" rel="noopener" aria-disabled="true">Ouvrir le formulaire officiel</a>
+  <section class="card">
+    <h2>4. Responsabilité</h2>
+    <p class="hint" style="margin-top:0">⚠ Le matériel prêté (hors EPI consommables) reste sous la garde et la responsabilité du bénéficiaire pendant toute la durée de la mission. Toute perte, casse ou dégradation résultant d'une négligence ou d'un usage non conforme, ainsi que tout vol, engage sa responsabilité : la valeur du matériel concerné lui sera réclamée et pourra faire l'objet d'un remboursement échelonné. En cas de vol, une plainte sera déposée auprès des autorités compétentes.</p>
+    <label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="clause" style="width:auto;margin-top:4px"> <span>Je certifie avoir pris connaissance de la clause de responsabilité ci-dessus et je valide cette déclaration comme signature électronique de ma part.</span></label>
+    <label>Nom complet (confirmation de signature)<input type="text" id="signature" autocomplete="name"></label>
+  </section>
+
+  <button class="cta" id="validateLink" type="button" aria-disabled="true">Envoyer la déclaration</button>
   <p class="missing" id="missing"></p>
-  <p class="cta-note">Le formulaire s'ouvre déjà rempli. Il reste à cocher la clause de responsabilité et à taper votre nom complet (signature), puis à envoyer.</p>
+  <p class="cta-note">Un mail récapitulatif est envoyé directement à l'agence.</p>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -244,24 +251,52 @@
     if (mouvement === "Restitution" && !$("etat").value) missing.push("indiquez l'état du matériel");
     ["nom","prenom","agence"].forEach(function(f){ if (!$(f).value.trim()) missing.push(f === "agence" ? "l'agence d'intérim" : "le " + f); });
 
+    if (!$("clause").checked) missing.push("cochez la clause de responsabilité");
+    if (!$("signature").value.trim()) missing.push("votre nom complet (signature)");
     if (missing.length){
       link.setAttribute("aria-disabled", "true"); link.removeAttribute("href");
       missingEl.textContent = "À compléter : " + missing.join(", ") + ".";
       return;
     }
-    var q = [];
-    function add(k, v){ q.push(k + "=" + encodeURIComponent(v)); }
-    add(P.ref, refs.join(", "));
-    add(P.type, '"' + mouvement + '"');
-    add(P.nom, $("nom").value.trim());
-    add(P.prenom, $("prenom").value.trim());
-    add(P.agence, $("agence").value.trim());
-    if (mouvement === "Emprunt" && $("chantier").value.trim()) add(P.chantier, $("chantier").value.trim());
-    if (mouvement === "Restitution") add(P.etat, '"' + $("etat").value + '"');
-    link.href = FORMS_BASE + "&" + q.join("&");
     link.removeAttribute("aria-disabled");
     missingEl.textContent = "";
   }
+
+  var MAIL_KEY = "WEB3FORMS_ACCESS_KEY";
+  function frDate(){
+    var d = new Date();
+    return d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }) + " à " + d.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+  }
+  async function envoyer(){
+    if (link.getAttribute("aria-disabled") === "true") return;
+    var who = ($("prenom").value.trim() + " " + $("nom").value.trim()).trim();
+    var liste = refs.join(", "), quand = frDate(), chant = $("chantier").value.trim();
+    var texte = mouvement === "Emprunt"
+      ? who + " (" + $("agence").value.trim() + ") a emprunté le matériel " + liste + (chant ? " pour le chantier de " + chant : "") + " le " + quand + "."
+      : who + " (" + $("agence").value.trim() + ") a restitué le matériel " + liste + " le " + quand + ". État constaté : " + $("etat").value + ".";
+    var body = {
+      access_key: MAIL_KEY,
+      subject: (mouvement === "Emprunt" ? "Emprunt" : "Restitution") + " matériel — " + who + " — " + liste,
+      from_name: "Scan matériel SYGMATEL",
+      message: texte + "\n\nSignature électronique : " + $("signature").value.trim() + " (clause de responsabilité acceptée).",
+      mouvement: mouvement, references: liste, nom: $("nom").value.trim(), prenom: $("prenom").value.trim(),
+      agence_interim: $("agence").value.trim(), chantier: chant, etat_restitution: mouvement === "Restitution" ? $("etat").value : "",
+      date_heure: quand, signature: $("signature").value.trim(), botcheck: ""
+    };
+    if (MAIL_KEY === "WEB3FORMS_ACCESS_KEY"){ setMsg("Envoi non configuré (clé manquante).", "err"); return; }
+    link.setAttribute("aria-disabled", "true"); link.textContent = "Envoi en cours…";
+    try {
+      var r = await fetch("https://api.web3forms.com/submit", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(body) });
+      var j = await r.json();
+      if (!j.success) throw new Error(j.message || "echec");
+      refs = []; lsSet(KEY_REFS, refs); $("clause").checked = false; $("signature").value = ""; $("chantier").value = "";
+      render(); toast("Déclaration envoyée ✔"); setMsg("Déclaration envoyée à l'agence.");
+    } catch(e){
+      setMsg("Envoi impossible. Vérifiez le réseau et réessayez.", "err");
+    }
+    link.textContent = "Envoyer la déclaration"; update();
+  }
+  link.addEventListener("click", envoyer);
 
   // ---- Lecture du QR depuis une photo prise avec l'appareil photo du téléphone ----
   function decodeCanvas(img, maxSide){
@@ -356,6 +391,8 @@
     });
   });
   $("chantier").addEventListener("input", update);
+  $("clause").addEventListener("change", update);
+  $("signature").addEventListener("input", update);
   $("etat").addEventListener("change", update);
 
   window.addEventListener("storage", function(e){
