@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="jsQR.js?v=6"></script>
+<script src="jsQR.js?v=7"></script>
 <style>
   /* Layout: single-column mobile tool — locked scanned refs, movement-dependent fields, link to prefilled official form */
   :root{
@@ -175,7 +175,7 @@
   <p class="cta-note">Un mail récapitulatif est envoyé directement à l'agence.</p>
 </main>
 
-<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 6 — envoi direct par mail</p>
+<p style="text-align:center;font:12px system-ui;opacity:.5;margin:8px 0 24px">Version 7 — envoi direct par mail</p>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -567,6 +567,11 @@
     var d = new Date();
     return d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }) + " à " + d.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
   }
+  function dateTxt(){
+    var f = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()), o = {};
+    f.forEach(function(x){ o[x.type] = x.value; });
+    return o.day + "/" + o.month + "/" + o.year + " " + o.hour + ":" + o.minute;
+  }
   async function envoyer(){
     if (link.getAttribute("aria-disabled") === "true") return;
     var who = ($("prenom").value.trim() + " " + $("nom").value.trim()).trim().toUpperCase();
@@ -594,6 +599,15 @@
       mouvement: mouvement, references: refs.join(", "), nom: $("nom").value.trim().toUpperCase(), prenom: $("prenom").value.trim().toUpperCase(),
       agence_interim: ag, service: svc, responsable_service: sv.resp, chantier: chant, date_heure: quand, a_facturer: fact.join(" | "), botcheck: ""
     };
+    // Données structurées pour le remplissage automatique du fichier Excel (une ligne par équipement)
+    var dt = dateTxt();
+    var lignes = refs.map(function(ref){
+      var d = restitOf(ref), rest = mouvement === "Restitution";
+      return { date: dt, ref: ref, mouvement: mouvement, nom: $("nom").value.trim().toUpperCase(), prenom: $("prenom").value.trim().toUpperCase(),
+        agence: rest ? "" : ag, service: svc, chantier: rest ? "" : chant, pack: rest ? (d.complet ? "Complet" : "Incomplet") : "",
+        manquants: rest && !d.complet ? d.manquants.join(", ") : "", etat: rest ? d.etat : "", commentaire: rest && d.comment.trim() ? d.comment.trim() : "" };
+    });
+    body.donnees = "§§" + JSON.stringify({ lignes: lignes }) + "§§";
     if (mouvement === "Restitution") refs.forEach(function(ref){
       var d = restitOf(ref);
       body["detail_" + ref] = (d.complet ? "complet" : "incomplet : " + d.manquants.join(", ") + " " + d.comment.trim()) + " | état : " + d.etat;
